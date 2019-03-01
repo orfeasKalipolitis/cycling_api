@@ -1,58 +1,13 @@
-//  Imports
+//  Import standard modules
 var express = require('express');
 var router = express.Router();
 const bodyParser = require('body-parser');
-const https = require('https');
 
-//  consts
-const bike_api_url = 'https://opendata.paris.fr/api/records/1.0/search/?dataset=velib-disponibilite-en-temps-reel&';
+//  Import custom modules
+var helper = require('./helper');
 
 //  use body parser module
 router.use(bodyParser.json());
-
-let getStationsInfo = () => {
-  return new Promise(function(resolve, reject) {
-    //  how many stations to ask for
-    const rows = 1;
-    //  which should be the first station to be brought back
-    let start = 1;
-
-    //  first get to check how many results are available
-    https.get(bike_api_url + 'rows=' + rows + '&start=' + start, (resp) => {
-      let data = '';
-      // A chunk of data has been recieved.
-      resp.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      // The whole response has been received. Print out the result.
-      resp.on('end', () => {
-        //  total number of results reported by the bike API
-        const num_hits = JSON.parse(data).nhits;
-
-        //  get all station results from bike API
-        https.get(bike_api_url + 'rows=' + num_hits + '&start=' + start, (resp) => {
-          let allData = '';
-
-          // A chunk of data has been recieved.
-          resp.on('data', (newChunk) => {
-            allData += newChunk;
-          });
-
-          // The whole response has been received. Print out the result.
-          resp.on('end', () => {
-            let stations = JSON.parse(allData).records.map(x => x.fields);
-            resolve(stations);
-          });
-        }).on("error", (err) => {
-          reject(err.message);
-        });
-      });
-    }).on("error", (err) => {
-      reject(err.message);
-    });
-  });
-};
 
 //  configure routing
 //  basic route
@@ -77,7 +32,7 @@ router
 
 //  /stations_and_bikes -> # operational stations and # total bikes available
 .get('/stations_and_bikes', (req,res,next) => {
-  getStationsInfo().then(stations => {
+  helper.getStationsInfo().then(stations => {
     //  station_state === 'Operative'
     let operationalStations = stations.filter(x => (x.station_state.localeCompare('Operative') == 0));
 
@@ -96,20 +51,26 @@ router
   });
   
 })
+;
 
-//  /distance?origin=x -> distance to closest operational station with available bikes
-.get('/distance', async (req,res,next) => {
-  returnPromise().then(x => {
-    console.log('Did it');
-    res.json(x);
-  }).catch(err => console.log(err));
+router.route('/distance')
+//  /distance?origin=x -> info
+.get((req,res,next) => {
+  res.json({info: 'Please refer to / for help.'});
 })
 
-;
-/* GET home page. 
-router.get('/', function(req, res, next) {
-  res.render('index', { title: 'Express' });
+router.route('/distance:origin')
+//  /distance?origin=x -> distance to closest operational station with available bikes
+.get((req,res,next) => {
+  getStationsInfo().then(stations => {
+    //  Get operational stations' coordinates, note: geo[0] = latitude and geo[1] = longtitude
+    let coords = stations
+      .filter(x => (x.station_state.localeCompare('Operative') == 0))
+      .map(x => {return {lat: (x.geo)[0], lon: (x.geo)[1]}});
+    console.log(req.params);
+    res.json(coords);
+  }).catch(err => console.log(err));
 });
-*/
+
 
 module.exports = router;
