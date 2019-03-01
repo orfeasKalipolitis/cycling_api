@@ -10,6 +10,50 @@ const bike_api_url = 'https://opendata.paris.fr/api/records/1.0/search/?dataset=
 //  use body parser module
 router.use(bodyParser.json());
 
+let getStationsInfo = () => {
+  return new Promise(function(resolve, reject) {
+    //  how many stations to ask for
+    const rows = 1;
+    //  which should be the first station to be brought back
+    let start = 1;
+
+    //  first get to check how many results are available
+    https.get(bike_api_url + 'rows=' + rows + '&start=' + start, (resp) => {
+      let data = '';
+      // A chunk of data has been recieved.
+      resp.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      // The whole response has been received. Print out the result.
+      resp.on('end', () => {
+        //  total number of results reported by the bike API
+        const num_hits = JSON.parse(data).nhits;
+
+        //  get all station results from bike API
+        https.get(bike_api_url + 'rows=' + num_hits + '&start=' + start, (resp) => {
+          let allData = '';
+
+          // A chunk of data has been recieved.
+          resp.on('data', (newChunk) => {
+            allData += newChunk;
+          });
+
+          // The whole response has been received. Print out the result.
+          resp.on('end', () => {
+            let stations = JSON.parse(allData).records.map(x => x.fields);
+            resolve(stations);
+          });
+        }).on("error", (err) => {
+          reject(err.message);
+        });
+      });
+    }).on("error", (err) => {
+      reject(err.message);
+    });
+  });
+};
+
 //  configure routing
 //  basic route
 router
@@ -33,43 +77,32 @@ router
 
 //  /stations_and_bikes -> # operational stations and # total bikes available
 .get('/stations_and_bikes', (req,res,next) => {
-  const rows = 10;
-  let start = 1;
-  https.get(bike_api_url + 'rows=' + rows + '&start=' + start, (resp) => {
-    let data = '';
+  getStationsInfo().then(stations => {
+    //  station_state === 'Operative'
+    let operationalStations = stations.filter(x => (x.station_state.localeCompare('Operative') == 0));
 
-    // A chunk of data has been recieved.
-    resp.on('data', (chunk) => {
-      data += chunk;
+    //  get number of bikes (bikes + ebikes)
+    const num_bikes = operationalStations
+      .map(x => x.nbebike + x.nbbike)
+      .reduce((acc, currValue, currIndex, array) => acc + currValue);
+
+    //  get number of operational stations
+    const num_stations = operationalStations.length;
+    
+    res.json({
+      number_of_stations: num_stations,
+      number_of_bikes: num_bikes
     });
-
-    // The whole response has been received. Print out the result.
-    resp.on('end', () => {
-      let stations = JSON.parse(data).records.map(x => x.fields);
-      stations = stations.filter(x => (x.station_state.localeCompare('Operative') == 0));
-      const num_bikes = stations
-        .map(x => x.nbebike + x.nbbike)
-        .reduce((acc, currValue, currIndex, array) => acc + currValue, 0);
-      const num_stations = stations.length;
-      
-      res.json({
-        number_of_stations: num_stations,
-        number_of_bikes: num_bikes
-      });
-    });
-
-  }).on("error", (err) => {
-    console.log("Error: " + err.message);
   });
+  
 })
 
 //  /distance?origin=x -> distance to closest operational station with available bikes
-.get('/distance', (req,res,next) => {
-  res.json({
-    body: {
-      title: 'distance'
-    }
-  });
+.get('/distance', async (req,res,next) => {
+  returnPromise().then(x => {
+    console.log('Did it');
+    res.json(x);
+  }).catch(err => console.log(err));
 })
 
 ;
