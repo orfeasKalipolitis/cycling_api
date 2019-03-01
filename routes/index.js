@@ -45,7 +45,17 @@ router
 
     // The whole response has been received. Print out the result.
     resp.on('end', () => {
-      res.json(JSON.parse(data));
+      let stations = JSON.parse(data).records.map(x => x.fields);
+      stations = stations.filter(x => (x.station_state.localeCompare('Operative') == 0));
+      const num_bikes = stations
+        .map(x => x.nbebike + x.nbbike)
+        .reduce((acc, currValue, currIndex, array) => acc + currValue, 0);
+      const num_stations = stations.length;
+      
+      res.json({
+        number_of_stations: num_stations,
+        number_of_bikes: num_bikes
+      });
     });
 
   }).on("error", (err) => {
