@@ -5,7 +5,11 @@ const https = require('https');
 const bike_api_url = 'https://opendata.paris.fr/api/records/1.0/search/?dataset=velib-disponibilite-en-temps-reel&';
 
 //  prototype for degrees -> rads
-Number.prototype.toRad = () => this * Math.PI / 180;
+//Number.prototype.toRad = () => this * Math.PI / 180;
+
+function toRad(x) {
+    return x * Math.PI / 180;
+} 
 
 //  gets crow flight distance between two coordinates
 let haversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -13,12 +17,12 @@ let haversineDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371;
   
     //  perform calculation
-    let x1 = lat2-lat1;
-    let dLat = x1.toRad();  
+    let x1 = lat2-lat1;  
+    let dLat = x1 * Math.PI / 180;  
     let x2 = lon2-lon1;
-    let dLon = x2.toRad();  
+    let dLon = toRad(x2);
     let a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + 
-            Math.cos(lat1.toRad()) * Math.cos(lat2.toRad()) * 
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * 
             Math.sin(dLon / 2) * Math.sin(dLon / 2);  
     let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
   
