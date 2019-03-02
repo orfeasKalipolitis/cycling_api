@@ -19,7 +19,10 @@ router.get('/', (req,res,next) => {
 
         helper.getStationsInfo().then(stations => {
             let operationalStations = stations
-                .filter(x => (x.station_state.localeCompare('Operative') == 0));
+                .filter(x => (
+                    x.station_state.localeCompare('Operative') == 0 &&
+                    (x.nbebike + x.nbbike > 0)
+                ));
 
             //  extract coordinates
             let coordsArr = operationalStations
